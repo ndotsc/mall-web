@@ -1,0 +1,174 @@
+/* ============================================================
+   全局样式：设计令牌 + 重置 + 页面骨架 + 可复用工具类
+   ------------------------------------------------------------
+   规则：这里只放「全站通用」的东西。
+        某个页面/组件独有的样式，写进那个 .vue 的 <style scoped> 里。
+   ============================================================ */
+
+/* ---------- 1. 设计令牌（Design Tokens） ----------
+   把颜色、圆角、阴影都存成变量。
+   好处：想换主题色只改这一行，全站跟着变。 */
+:root {
+  --c-bg: #f6f7f9;
+  --c-surface: #ffffff;
+  --c-text: #1f2328;
+  --c-text-weak: #6b7280;
+  --c-text-faint: #9ca3af;
+  --c-border: #e6e8eb;
+  --c-brand: #2563eb;
+  --c-brand-dark: #1d4ed8;
+  --c-brand-weak: #eef4ff;
+  --c-danger: #e5484d;
+
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 6px 20px rgba(16, 24, 40, 0.09);
+
+  --maxw: 1120px;
+}
+
+/* ---------- 2. 全局重置 ----------
+   第一条最重要：让 width 包含 padding 和 border。
+   没有它，你写 width:200px + padding:20px 实际会占 240px，布局永远对不齐。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  margin: 0 0 12px;
+  line-height: 1.3;
+  color: var(--c-text);
+  font-weight: 600;
+}
+h1 { font-size: 32px; }
+h2 { font-size: 22px; }
+h3 { font-size: 17px; }
+p  { margin: 0 0 12px; }
+
+/* 图片默认撑满容器且不变形，能避免 90% 的图片溢出问题 */
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ---------- 3. 页面骨架 ----------
+   经典「粘性页脚」结构：header / main(flex:1) / footer
+   main 撑开剩余高度，页脚永远贴在底部，内容少也不会跑上来。 */
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;   /* 100vh = 视口高度 */
+}
+
+.site-main {
+  flex: 1;             /* 关键：吃掉中间所有剩余空间 */
+  width: 100%;
+}
+
+/* ---------- 4. 可复用工具类 ---------- */
+
+/* 内容居中容器：所有页面都套一层它，左右留白就统一了 */
+.container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* 白色卡片：列表项、详情块、内容区都用它 */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  background: var(--c-brand);
+  color: #fff;
+  font-weight: 500;
+  transition: background 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+.btn:hover {
+  background: var(--c-brand-dark);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);   /* 悬浮时轻轻抬起，手感来源 */
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn-ghost {
+  background: var(--c-brand-weak);
+  color: var(--c-brand);
+}
+.btn-ghost:hover {
+  background: #dfeaff;
+  box-shadow: none;
+}
+
+/* 价格文字 */
+.price {
+  color: var(--c-danger);
+  font-weight: 600;
+  font-size: 20px;
+}
+.price-sm {
+  font-size: 15px;
+}
+
+/* 两行截断：标题长短不一也不会撑乱布局
+   注意：WebKit 要求这两条必须同时存在，少一条都不生效 */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 灰色辅助文字 */
+.muted {
+  color: var(--c-text-weak);
+  font-size: 14px;
+}
+
+/* 区块标题（列表页、详情页分节用） */
+.section-title {
+  margin: 32px 0 16px;
+  font-size: 20px;
+}
