@@ -1,6 +1,8 @@
-# my-site
+# mall-web
 
-商城前端：Vue 3 + Vite + Element Plus + Pinia + vue-router。配合后端 [mall-api](../backend/mall-api) 运行。
+![CI](https://github.com/ndotsc/mall-web/actions/workflows/ci.yml/badge.svg)
+
+商城前端：Vue 3 + Vite + Element Plus + Pinia + vue-router。配合后端 [mall-api](https://github.com/ndotsc/mall-api) 运行。
 
 ## 环境要求
 
