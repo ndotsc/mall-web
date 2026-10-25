@@ -1,18 +1,33 @@
 <script setup>
-import { products } from '@/mock/products'
-import { computed } from 'vue'
+// import { products } from '@/mock/products'
 import { useRoute } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { formatPrice } from '@/utils/format'
+import { ref, onMounted, watch } from 'vue'
+import { getProduct } from '@/api/products'
 
 const route = useRoute()
 const store = useCartStore()
+const product = ref(null)
+const loading = ref(true)
+async function load() {
+  loading.value = true
+  try {
+    product.value = await getProduct(route.params.id)
+  } catch (e) {
+    product.value = null
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(load)
+watch(() => route.params.id, load)
 
 // 用 computed 包一层：切换 /product/1 -> /product/2 时组件被复用，
 // 只有 computed 会重新计算（普通变量不会，会显示上一个商品）
-const product = computed(() =>
-  products.find(item => item.id === Number(route.params.id))
-)
+// const product = computed(() =>
+//   products.find(item => item.id === Number(route.params.id))
+// )
 </script>
 
 <template>

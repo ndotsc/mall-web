@@ -1,11 +1,21 @@
 <script setup>
+import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
+import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 
+const router = useRouter()
 const cart = useCartStore()
+const userStore = useUserStore()
 // ⚠️ 重点：想「解构」store 里的值，必须用 storeToRefs 包一层。
 // 直接写 const { count } = cart 会拿到一个死数字，加购后页面不会变。
 const { count } = storeToRefs(cart)
+const { displayName, isLoggedIn } = storeToRefs(userStore)
+
+function logout() {
+  userStore.logout()
+  router.push('/')
+}
 </script>
 
 <template>
@@ -24,12 +34,20 @@ const { count } = storeToRefs(cart)
         <RouterLink to="/contact">联系</RouterLink>
       </nav>
 
-      <!-- 右侧：购物车角标 -->
-      <RouterLink to="/cart" class="cart">
-        <span class="cart-icon">🛒</span>
-        <span class="cart-text">购物车</span>
-        <span v-if="count > 0" class="badge">{{ count }}</span>
-      </RouterLink>
+      <!-- 右侧：用户 + 购物车 -->
+      <div class="header-actions">
+        <div v-if="isLoggedIn" class="user-area">
+          <span class="user-name">{{ displayName }}</span>
+          <button type="button" class="logout-btn" @click="logout">退出</button>
+        </div>
+        <RouterLink v-else to="/login" class="login-link">登录</RouterLink>
+
+        <RouterLink to="/cart" class="cart">
+          <span class="cart-icon">🛒</span>
+          <span class="cart-text">购物车</span>
+          <span v-if="count > 0" class="badge">{{ count }}</span>
+        </RouterLink>
+      </div>
     </div>
   </header>
 </template>
@@ -83,6 +101,51 @@ const { count } = storeToRefs(cart)
   background: var(--c-brand-weak);
   color: var(--c-brand);
   font-weight: 500;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.user-name {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.logout-btn {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--c-text-weak);
+  font-size: 13px;
+  transition: background 0.18s, color 0.18s;
+}
+.logout-btn:hover {
+  background: var(--c-bg);
+  color: var(--c-danger);
+}
+
+.login-link {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  color: var(--c-brand);
+  font-weight: 500;
+}
+.login-link:hover {
+  background: var(--c-brand-weak);
 }
 
 .cart {

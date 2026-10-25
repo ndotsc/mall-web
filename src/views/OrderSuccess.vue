@@ -1,25 +1,42 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useOrderStore } from '@/stores/order'
 import { formatPrice } from '@/utils/format'
 import { payLabel } from '@/constants'
+import { getOrder } from '@/api/orders'
 
 const route = useRoute()
-const order = useOrderStore()
+const loading = ref(true)
+const orderInfo = ref(null)
 
-const orderInfo = computed(() => order.getByNo(route.params.id))
-
-// ★ orderInfo 可能是 undefined（刷新页面后订单就没了），
-//   计算属性里不能直接读它的属性，否则整个页面白屏
-const totalPrice = computed(() => {
-    if (!orderInfo.value) return 0
-    return orderInfo.value.items.reduce((t, i) => t + i.price * i.number, 0)
-})
-
-const count = computed(() => {
-    if (!orderInfo.value) return 0
-    return orderInfo.value.items.reduce((t, i) => t + i.number, 0)
+onMounted(async () => {
+    try {
+        const d = await getOrder(route.params.id)
+        orderInfo.value = {
+            orderNo: d.orderNo,
+            total: d.totalAmount,
+            status: d.status === 1 ? '待发货' : d.status === 2 ? '已发货' : '已完成',
+            payType: d.payType,
+            info: {
+                name: d.receiverName,
+                phone: d.receiverPhone,
+                address: d.address,
+            },
+            remark: d.remark,
+            count: d.items.reduce((t, i) => t + i.number, 0),
+            items: d.items.map(i => ({
+                id: i.productId,
+                name: i.name,
+                price: i.price,
+                number: i.number,
+                cover: i.cover,
+            }))
+        }
+    } catch (e) {
+        orderInfo.value = null
+    } finally {
+        loading.value = false
+    }
 })
 </script>
 
@@ -46,9 +63,9 @@ const count = computed(() => {
             <div class="rows">
                 <div class="row"><span class="muted">订单号</span><span class="mono">{{ orderInfo.orderNo }}</span></div>
                 <div class="row"><span class="muted">订单金额</span>
-                    <span class="amount">{{ formatPrice(totalPrice) }}</span>
+                    <span class="amount">{{ formatPrice(orderInfo.total) }}</span>
                 </div>
-                <div class="row"><span class="muted">商品件数</span><span>共 {{ count }} 件</span></div>
+                <div class="row"><span class="muted">商品件数</span><span>共 {{ orderInfo.count }} 件</span></div>
                 <div class="row"><span class="muted">支付方式</span><span>{{ payLabel(orderInfo.payType) }}</span></div>
                 <div class="row"><span class="muted">订单状态</span><span
                         class="status">{{ orderInfo.status }}</span></div>

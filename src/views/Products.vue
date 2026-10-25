@@ -1,9 +1,25 @@
 <script setup>
-import { products } from '@/mock/products'
+// import { products } from '@/mock/products'
 import { formatPrice } from '@/utils/format'
+import { ref, onMounted } from 'vue'
+import { getProducts } from '@/api/products'
+
+const products = ref([])
+const loading = ref(true)
+onMounted(async () => {
+  try {
+    const res = await getProducts(1, 50)
+    products.value = res.list
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
+  <div v-if="loading">加载中...</div>
   <div class="container">
     <h1 class="page-title">全部商品</h1>
     <p class="muted page-sub">共 {{ products.length }} 件</p>

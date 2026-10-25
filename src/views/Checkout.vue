@@ -2,16 +2,22 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
-import { useOrderStore } from '@/stores/order'
 import { formatPrice } from '@/utils/format'
 import { PAY_TYPES } from '@/constants'
+import { createOrder } from '@/api/orders'
+import { isLoggedIn } from '@/utils/auth'
 
 const router = useRouter()
 const cart = useCartStore()
-const order = useOrderStore()
 
+// 未登录先去登录，回来继续结算
+if (!isLoggedIn()) {
+  router.replace({ path: '/login', query: { redirect: '/checkout' } })
+}
 // 购物车为空时不该停在结算页
-if (!cart.items.length) router.replace('/cart')
+else if (!cart.items.length) {
+  router.replace('/cart')
+}
 
 // ★ 直接读 store，不拷贝。购物车是这份数据唯一的主人，
 //   这里做一份副本就会出现"改了购物车、页面不跟着变"的老毛病
@@ -69,25 +75,30 @@ async function apply() {
     if (applying.value) return
     applying.value = true
 
-    const orderNo = order.create({
-        items: items.value,
-        info: {
-            name: form.value.name.trim(),
-            phone: form.value.phone.trim(),
-            address: form.value.address.trim()
-        },
-        payType: payType.value,
-        remark: form.value.remark.trim(),
-        total: totalPrice.value
-    })
-
-    showToast(1500, () => {
-        isOpen.value = false
-        // 结算页这一刻才清空购物车：提前清空的话，
-        // 这 1.5 秒里页面上的商品清单会突然变成空的
-        cart.clear()
-        router.replace('/order-success/' + orderNo)
-    })
+    try {
+        const { orderNo } = await createOrder({
+            items: items.value.map(i => ({ productId: i.id, number: i.number })),
+            info: {
+                name: form.value.name.trim(),
+                phone: form.value.phone.trim(),
+                address: form.value.address.trim()
+            },
+            payType: payType.value,
+            remark: form.value.remark.trim()
+        })
+    
+        showToast(1500, () => {
+            isOpen.value = false
+            // 结算页这一刻才清空购物车：提前清空的话，
+            // 这 1.5 秒里页面上的商品清单会突然变成空的
+            cart.clear()
+            router.replace('/order-success/' + orderNo)
+        })
+    } catch (e) {
+        applying.value = false
+        const msg = e.response?.data?.message || e.message || '下单失败'
+        alert(msg)
+    }
 }
 
 function showToast(duration = 2000, callback) {

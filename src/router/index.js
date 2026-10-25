@@ -7,6 +7,7 @@ import Contact from '@/views/Contact.vue'
 import Cart from '@/views/Cart.vue'
 import Checkout from '@/views/Checkout.vue'
 import OrderSuccess from '@/views/OrderSuccess.vue'
+import Login from '@/views/Login.vue'
 
 const routes = [
     {
@@ -48,6 +49,11 @@ const routes = [
         name: 'orderSuccess',
         path: '/order-success/:id',
         component: OrderSuccess
+    },
+    {
+        name: 'login',
+        path: '/login',
+        component: Login
     }
 ]
 
