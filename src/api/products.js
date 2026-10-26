@@ -1,6 +1,9 @@
 import request from "./request";
-export function getProducts(page = 1, pageSize = 50) {
-    return request.get('/products', { params: { page, pageSize } })
+// keyword 为空时不传该参数，后端就不做名称过滤
+export function getProducts(page = 1, pageSize = 50, keyword = "") {
+    const params = { page, pageSize };
+    if (keyword) params.keyword = keyword;
+    return request.get('/products', { params })
 }
 
 export function getProduct(id) {
