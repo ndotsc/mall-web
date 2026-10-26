@@ -3,7 +3,11 @@ import { getToken, clearToken } from "@/utils/auth";
 import { ElMessage } from 'element-plus'
 import router from "@/router";
 
-const request = axios.create({ baseURL: '/api', timeout: 10000 })
+// 接口基址：
+// - 本地开发 / 同域部署（Nginx 反代 /api）→ 留空，用相对路径 '/api'
+// - 前后端异域部署（如 Vercel 前端 + Railway 后端）→ 配 VITE_API_BASE=https://api.你的域名.com
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+const request = axios.create({ baseURL: API_BASE + '/api', timeout: 10000 })
 
 let isUnauth = false
 

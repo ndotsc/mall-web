@@ -25,3 +25,8 @@ dist-ssr
 
 # Temp files (tooling placeholders)
 _tmp_*
+
+# Env files (keep .env.example tracked, ignore real secrets)
+.env
+.env.*
+!.env.example
