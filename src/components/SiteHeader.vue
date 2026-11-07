@@ -30,6 +30,7 @@ function logout() {
       <nav class="nav">
         <RouterLink to="/">首页</RouterLink>
         <RouterLink to="/products">商品</RouterLink>
+        <RouterLink to="/coupons">领券</RouterLink>
         <RouterLink to="/about">关于</RouterLink>
         <RouterLink to="/contact">联系</RouterLink>
       </nav>
@@ -37,7 +38,7 @@ function logout() {
       <!-- 右侧：用户 + 购物车 -->
       <div class="header-actions">
         <div v-if="isLoggedIn" class="user-area">
-          <span class="user-name">{{ displayName }}</span>
+          <RouterLink to="/profile" class="user-name">{{ displayName }}</RouterLink>
           <button type="button" class="logout-btn" @click="logout">退出</button>
         </div>
         <RouterLink v-else to="/login" class="login-link">登录</RouterLink>

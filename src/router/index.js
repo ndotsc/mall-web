@@ -9,6 +9,11 @@ import Checkout from '@/views/Checkout.vue'
 import OrderSuccess from '@/views/OrderSuccess.vue'
 import Login from '@/views/Login.vue'
 import Admin from '@/views/Admin.vue'
+import CouponCenter from '@/views/CouponCenter.vue'
+import MyCoupon from '@/views/MyCoupon.vue'
+import Profile from '@/views/Profile.vue'
+import MyFavorites from '@/views/MyFavorites.vue'
+import MyOrders from '@/views/MyOrders.vue'
 import { useUserStore } from '@/stores/user'
 import { isLoggedIn } from '@/utils/auth'
 import { me } from '@/api/auth'
@@ -75,6 +80,31 @@ const routes = [
     name: 'login',
     path: '/login',
     component: Login,
+  },
+  {
+    name: 'coupons',
+    path: '/coupons',
+    component: CouponCenter,
+  },
+  {
+    name: 'myCoupons',
+    path: '/my-coupons',
+    component: MyCoupon,
+  },
+  {
+    name: 'favorites',
+    path: '/favorites',
+    component: MyFavorites,
+  },
+  {
+    name: 'myOrders',
+    path: '/my-orders',
+    component: MyOrders,
+  },
+  {
+    name: 'profile',
+    path: '/profile',
+    component: Profile,
   },
   {
     name: 'admin',

@@ -1,10 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { formatPrice } from '@/utils/format'
 import { PAY_TYPES } from '@/constants'
 import { createOrder } from '@/api/orders'
+import { getMyCoupons } from '@/api/coupon'
+import { computeCouponDiscount } from '@/utils/coupon'
 import { isLoggedIn } from '@/utils/auth'
 
 const router = useRouter()
@@ -18,6 +20,9 @@ if (!isLoggedIn()) {
 else if (!cart.items.length) {
   router.replace('/cart')
 }
+
+// 拉取可用优惠券（在 setup 阶段注册，进入页面即加载）
+onMounted(loadCoupons)
 
 // ★ 直接读 store，不拷贝。购物车是这份数据唯一的主人，
 //   这里做一份副本就会出现"改了购物车、页面不跟着变"的老毛病
@@ -36,6 +41,19 @@ const addressInput = ref(null)
 const isOpen = ref(false)
 const isShow = ref(false)
 const applying = ref(false)
+
+// 优惠券：拉取本人未使用且对本单可用的券，提交时把选中的 userCoupon id 传给后端
+const coupons = ref([])
+const selectedCouponId = ref(null)
+const couponLoading = ref(false)
+
+const discountAmount = computed(() => {
+  const c = coupons.value.find(x => x.id === selectedCouponId.value)
+  if (!c) return 0
+  const { discount } = computeCouponDiscount(c.coupon, totalPrice.value)
+  return discount
+})
+const payable = computed(() => Math.max(0, totalPrice.value - discountAmount.value))
 
 /* ---------- 校验 ---------- */
 function checkName() {
@@ -57,6 +75,23 @@ function checkAddress() {
 // 一开始修改就撤掉报错，别让红框一直挂着
 function reset(field) {
     errors.value[field] = false
+}
+
+// 拉取本人未使用且对本单满足门槛的优惠券（前端按同一算法预筛，服务端会再校验）
+async function loadCoupons() {
+    if (!isLoggedIn()) return
+    couponLoading.value = true
+    try {
+        const data = await getMyCoupons({ status: 'unused' })
+        coupons.value = (data.list || []).filter(c => {
+            const { discount } = computeCouponDiscount(c.coupon, totalPrice.value)
+            return discount > 0
+        })
+    } catch {
+        coupons.value = []
+    } finally {
+        couponLoading.value = false
+    }
 }
 
 function submit() {
@@ -84,7 +119,8 @@ async function apply() {
                 address: form.value.address.trim()
             },
             payType: payType.value,
-            remark: form.value.remark.trim()
+            remark: form.value.remark.trim(),
+            couponId: selectedCouponId.value || undefined
         })
     
         showToast(1500, () => {
@@ -153,7 +189,27 @@ function showToast(duration = 2000, callback) {
             </div>
         </section>
 
-        <!-- 3. 商品清单 -->
+        <!-- 3. 优惠劵 -->
+        <section class="block card">
+            <h2 class="block-title">优惠券</h2>
+            <div v-if="couponLoading" class="muted">加载中…</div>
+            <template v-else>
+                <label class="coupon-opt">
+                    <input type="radio" name="coupon" :value="null" v-model="selectedCouponId" />
+                    <span class="coupon-box">不使用优惠券</span>
+                </label>
+                <label v-for="c in coupons" :key="c.id" class="coupon-opt">
+                    <input type="radio" name="coupon" :value="c.id" v-model="selectedCouponId" />
+                    <span class="coupon-box">
+                        <span class="coupon-label">{{ c.coupon.label }}</span>
+                        <span class="coupon-name">{{ c.coupon.name }}</span>
+                    </span>
+                </label>
+                <p v-if="!coupons.length" class="muted">暂无可用优惠券</p>
+            </template>
+        </section>
+
+        <!-- 4. 商品清单 -->
         <section class="block card">
             <h2 class="block-title">商品清单</h2>
 
@@ -183,11 +239,16 @@ function showToast(duration = 2000, callback) {
             </div>
         </section>
 
-        <!-- 4. 合计 + 提交 -->
+        <!-- 5. 合计 + 提交 -->
         <div class="bar card">
             <div class="sum">
                 <span class="muted">共 {{ totalCount }} 件 · 合计</span>
-                <span class="total">{{ formatPrice(totalPrice) }}</span>
+                <template v-if="discountAmount">
+                    <span class="origin">{{ formatPrice(totalPrice) }}</span>
+                    <span class="total">{{ formatPrice(payable) }}</span>
+                </template>
+                <span v-else class="total">{{ formatPrice(totalPrice) }}</span>
+                <span v-if="discountAmount" class="discount">已优惠 {{ formatPrice(discountAmount) }}</span>
             </div>
             <button class="btn submit-btn" @click="submit">提交订单</button>
         </div>
@@ -203,7 +264,12 @@ function showToast(duration = 2000, callback) {
             </p>
             <div class="sum dialog-sum">
                 <span class="muted">共 {{ totalCount }} 件 · 合计</span>
-                <span class="total">{{ formatPrice(totalPrice) }}</span>
+                <template v-if="discountAmount">
+                    <span class="origin">{{ formatPrice(totalPrice) }}</span>
+                    <span class="total">{{ formatPrice(payable) }}</span>
+                    <span class="discount">已优惠 {{ formatPrice(discountAmount) }}</span>
+                </template>
+                <span v-else class="total">{{ formatPrice(totalPrice) }}</span>
             </div>
             <div class="dialog-actions">
                 <button class="btn btn-ghost" :disabled="applying" @click="isOpen = false">再看看</button>
@@ -344,6 +410,49 @@ textarea.input {
 /* 藏起来的 radio 也要保留键盘焦点提示（无障碍必做） */
 .pay input:focus-visible+.pay-box {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, .3);
+}
+
+/* ---------- 优惠券 ---------- */
+.coupon-opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+.coupon-opt input {
+    accent-color: var(--c-brand);
+}
+.coupon-box {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    font-size: 14px;
+}
+.coupon-opt input:checked+.coupon-box {
+    border-color: var(--c-brand);
+    background: var(--c-brand-weak);
+    color: var(--c-brand);
+}
+.coupon-name {
+    font-size: 12px;
+    color: var(--c-text-weak);
+}
+
+/* ---------- 合计优惠展示 ---------- */
+.origin {
+    font-size: 14px;
+    color: var(--c-text-faint);
+    text-decoration: line-through;
+    margin-left: 6px;
+}
+.discount {
+    font-size: 13px;
+    color: var(--c-danger);
+    margin-left: 8px;
 }
 
 /* ---------- 商品行 ---------- */
