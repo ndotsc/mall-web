@@ -3,6 +3,7 @@
 import { formatPrice } from '@/utils/format'
 import { ref, computed, onMounted } from 'vue'
 import { getProducts } from '@/api/products'
+import { getCategories } from '@/api/category'
 
 // 每页 8 件：桌面端 4 列 × 2 行正好铺满，不留半行；
 // 当前库里 10 件商品，能正好演示出 2 页（想改 12 改这一个数即可）
@@ -14,14 +15,26 @@ const keyword = ref('')
 const total = ref(0)
 const page = ref(1)
 
+// ---- 筛选 / 排序（小程序端已有，web 端补齐）----
+const categories = ref([])
+const categoryId = ref('')      // '' = 全部
+const minPrice = ref('')        // 元（原始输入）
+const maxPrice = ref('')
+const sort = ref('created_desc') // 综合（默认）/ 价格升 / 价格降 / 最新
+
 // 总页数由后端 total 算；total=0 时也至少 1 页，避免显示「第 1 / 0 页」
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 async function fetchProducts() {
   loading.value = true
   try {
-    // 三个参数：页码、每页条数、搜索词（为空则后端不过滤）
-    const res = await getProducts(page.value, PAGE_SIZE, keyword.value.trim())
+    // 三个基础参数 + 筛选/排序参数（extra 里空值会被 api 层忽略）
+    const res = await getProducts(page.value, PAGE_SIZE, keyword.value.trim(), {
+      categoryId: categoryId.value,
+      minPrice: minPrice.value,
+      maxPrice: maxPrice.value,
+      sort: sort.value,
+    })
     products.value = res.list
     total.value = res.total
   } catch (e) {
@@ -31,12 +44,36 @@ async function fetchProducts() {
   }
 }
 
-onMounted(fetchProducts)
+onMounted(() => {
+  // 拉分类用于筛选宫格；失败不影响列表
+  getCategories()
+    .then((res) => { categories.value = res || [] })
+    .catch(() => { categories.value = [] })
+  fetchProducts()
+})
 
-// 搜索重置回第 1 页：否则在第 3 页搜索会拿到空列表
-function onSearch() {
+// 任何筛选/搜索变更都回到第 1 页，避免停留在旧页拿到空列表
+function resetAndFetch() {
   page.value = 1
   fetchProducts()
+}
+
+function onSearch() {
+  resetAndFetch()
+}
+
+function onCategory(id) {
+  if (categoryId.value === id) return
+  categoryId.value = id
+  resetAndFetch()
+}
+
+function onPriceConfirm() {
+  resetAndFetch()
+}
+
+function onSortChange() {
+  resetAndFetch()
 }
 
 function goPage(target) {
@@ -63,6 +100,33 @@ function goPage(target) {
       />
       <button class="search-btn" type="submit">搜索</button>
     </form>
+
+    <!-- 筛选 / 排序工具条（小程序端已有，web 端补齐）：分类 + 价格区间 + 排序 -->
+    <div class="filters">
+      <div class="cat-pills">
+        <button class="pill" :class="{ active: categoryId === '' }" @click="onCategory('')">全部</button>
+        <button
+          v-for="c in categories"
+          :key="c.id"
+          class="pill"
+          :class="{ active: categoryId === c.id }"
+          @click="onCategory(c.id)"
+        >{{ c.name }}</button>
+      </div>
+
+      <div class="price-filter">
+        <input v-model="minPrice" class="price-input" type="number" min="0" placeholder="最低价" @change="onPriceConfirm" />
+        <span class="price-sep">—</span>
+        <input v-model="maxPrice" class="price-input" type="number" min="0" placeholder="最高价" @change="onPriceConfirm" />
+      </div>
+
+      <select v-model="sort" class="sort-select" @change="onSortChange">
+        <option value="created_desc">综合</option>
+        <option value="price_asc">价格从低到高</option>
+        <option value="price_desc">价格从高到低</option>
+        <option value="created_asc">最新上架</option>
+      </select>
+    </div>
 
     <p v-if="loading" class="muted">加载中...</p>
     <!-- 空状态：搜不到时给明确反馈，而不是一片空白 -->
@@ -111,7 +175,7 @@ function goPage(target) {
 .search-bar {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .search-input {
   flex: 1;
@@ -140,6 +204,73 @@ function goPage(target) {
 }
 .search-btn:hover {
   opacity: 0.9;
+}
+
+/* ---------- 筛选 / 排序工具条 ---------- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.cat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pill {
+  padding: 7px 16px;
+  font-size: 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c-text-weak);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pill:hover {
+  border-color: var(--c-brand);
+  color: var(--c-brand);
+}
+.pill.active {
+  background: var(--c-brand);
+  border-color: var(--c-brand);
+  color: #fff;
+}
+.price-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.price-input {
+  width: 92px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+}
+.price-input:focus {
+  border-color: var(--c-brand);
+}
+.price-sep {
+  color: var(--c-text-faint);
+}
+.sort-select {
+  margin-left: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--c-text);
+  cursor: pointer;
+  outline: none;
+}
+.sort-select:focus {
+  border-color: var(--c-brand);
 }
 
 .empty {
