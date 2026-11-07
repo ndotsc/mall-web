@@ -7,6 +7,7 @@ import { PAY_TYPES } from '@/constants'
 import { createOrder } from '@/api/orders'
 import { getMyCoupons } from '@/api/coupon'
 import { computeCouponDiscount } from '@/utils/coupon'
+import { getAddresses } from '@/api/address'
 import { isLoggedIn } from '@/utils/auth'
 
 const router = useRouter()
@@ -21,8 +22,43 @@ else if (!cart.items.length) {
   router.replace('/cart')
 }
 
-// 拉取可用优惠券（在 setup 阶段注册，进入页面即加载）
-onMounted(loadCoupons)
+// 拉取可用优惠券 + 已存收货地址（进入页面即加载）
+onMounted(() => {
+  loadCoupons()
+  loadAddresses()
+})
+
+// 已存收货地址：默认选中默认地址；用户也可切到「手动填写」
+const addresses = ref([])
+const selectedAddressId = ref(null)
+const useManual = ref(false)
+const addressLoading = ref(false)
+
+async function loadAddresses() {
+  if (!isLoggedIn()) return
+  addressLoading.value = true
+  try {
+    const list = await getAddresses()
+    addresses.value = Array.isArray(list) ? list : []
+    const def = addresses.value.find(a => a.isDefault) || addresses.value[0]
+    selectedAddressId.value = def ? def.id : null
+    // 没有任何已存地址时，直接进入手动填写模式
+    useManual.value = addresses.value.length === 0
+  } catch {
+    addresses.value = []
+    useManual.value = true
+  } finally {
+    addressLoading.value = false
+  }
+}
+
+// 当前生效的收货地址（选中已存地址时为对象；手动模式为 null）
+const activeAddress = computed(() =>
+  addresses.value.find(a => a.id === selectedAddressId.value) || null
+)
+
+// 确认弹窗里展示的收货信息（与下单实际发送的一致）
+const receiverPreview = computed(() => resolveReceiver())
 
 // ★ 直接读 store，不拷贝。购物车是这份数据唯一的主人，
 //   这里做一份副本就会出现"改了购物车、页面不跟着变"的老毛病
@@ -95,13 +131,29 @@ async function loadCoupons() {
 }
 
 function submit() {
-    // ★ 校验顺序跟页面顺序一致，出错就聚焦到那一个框
-    //   （原来的写法里 submit 第一句是 `return`，下面全成了死代码，校验压根没跑）
+    // 已选已存地址时无需校验手动框；否则按原顺序校验手动填写
+    if (!useManual.value && activeAddress.value) {
+        isOpen.value = true
+        return
+    }
     if (!checkName()) { nameInput.value?.focus(); return }
     if (!checkPhone()) { phoneInput.value?.focus(); return }
     if (!checkAddress()) { addressInput.value?.focus(); return }
 
     isOpen.value = true
+}
+
+// 解析最终收货信息：优先用选中的已存地址，否则用手动表单
+function resolveReceiver() {
+    if (!useManual.value && activeAddress.value) {
+        const a = activeAddress.value
+        return { name: a.name, phone: a.phone, address: a.detail }
+    }
+    return {
+        name: form.value.name.trim(),
+        phone: form.value.phone.trim(),
+        address: form.value.address.trim(),
+    }
 }
 
 /* ---------- 下单 ---------- */
@@ -111,13 +163,10 @@ async function apply() {
     applying.value = true
 
     try {
+        const receiver = resolveReceiver()
         const { orderNo } = await createOrder({
             items: items.value.map(i => ({ productId: i.id, number: i.number })),
-            info: {
-                name: form.value.name.trim(),
-                phone: form.value.phone.trim(),
-                address: form.value.address.trim()
-            },
+            info: receiver,
             payType: payType.value,
             remark: form.value.remark.trim(),
             couponId: selectedCouponId.value || undefined
@@ -152,30 +201,58 @@ function showToast(duration = 2000, callback) {
 
         <!-- 1. 收货信息 -->
         <section class="block card">
-            <h2 class="block-title">收货信息</h2>
+            <h2 class="block-title">
+                收货信息
+                <RouterLink class="manage-link" to="/address">管理收货地址</RouterLink>
+            </h2>
 
-            <div class="field">
-                <label class="label" for="name">收货人</label>
-                <input ref="nameInput" id="name" class="input" :class="{ 'is-error': errors.name }" v-model="form.name"
-                    placeholder="请输入收货人姓名" autocomplete="name" @blur="checkName" @input="reset('name')" />
-                <p class="msg" :class="{ 'is-error': errors.name }">请输入收货人姓名</p>
+            <!-- 有已存地址且未切手动：从列表里选 -->
+            <div v-if="!useManual && addresses.length" class="addr-pick">
+                <label v-for="a in addresses" :key="a.id" class="addr-opt" :class="{ active: selectedAddressId === a.id }">
+                    <input type="radio" name="addr" :value="a.id" v-model="selectedAddressId" />
+                    <span class="addr-box">
+                        <span class="addr-line1">
+                            <span class="addr-name">{{ a.name }}</span>
+                            <span class="addr-phone">{{ a.phone }}</span>
+                            <span v-if="a.isDefault" class="tag">默认</span>
+                        </span>
+                        <span class="addr-detail">{{ a.detail }}</span>
+                    </span>
+                </label>
+                <button type="button" class="switch-manual" @click="useManual = true">
+                    使用其他地址（手动填写）
+                </button>
             </div>
 
-            <div class="field">
-                <label class="label" for="phone">手机号</label>
-                <input ref="phoneInput" id="phone" class="input" :class="{ 'is-error': errors.phone }"
-                    v-model="form.phone" placeholder="11 位手机号" inputmode="numeric" autocomplete="tel"
-                    @blur="checkPhone" @input="reset('phone')" />
-                <p class="msg" :class="{ 'is-error': errors.phone }">请输入正确的 11 位手机号</p>
-            </div>
+            <!-- 无地址 / 手动模式：原表单 -->
+            <template v-else>
+                <div class="field">
+                    <label class="label" for="name">收货人</label>
+                    <input ref="nameInput" id="name" class="input" :class="{ 'is-error': errors.name }" v-model="form.name"
+                        placeholder="请输入收货人姓名" autocomplete="name" @blur="checkName" @input="reset('name')" />
+                    <p class="msg" :class="{ 'is-error': errors.name }">请输入收货人姓名</p>
+                </div>
 
-            <div class="field">
-                <label class="label" for="address">详细地址</label>
-                <input ref="addressInput" id="address" class="input" :class="{ 'is-error': errors.address }"
-                    v-model="form.address" placeholder="省 / 市 / 区 / 街道门牌" autocomplete="street-address"
-                    @blur="checkAddress" @input="reset('address')" />
-                <p class="msg" :class="{ 'is-error': errors.address }">地址至少 5 个字</p>
-            </div>
+                <div class="field">
+                    <label class="label" for="phone">手机号</label>
+                    <input ref="phoneInput" id="phone" class="input" :class="{ 'is-error': errors.phone }"
+                        v-model="form.phone" placeholder="11 位手机号" inputmode="numeric" autocomplete="tel"
+                        @blur="checkPhone" @input="reset('phone')" />
+                    <p class="msg" :class="{ 'is-error': errors.phone }">请输入正确的 11 位手机号</p>
+                </div>
+
+                <div class="field">
+                    <label class="label" for="address">详细地址</label>
+                    <input ref="addressInput" id="address" class="input" :class="{ 'is-error': errors.address }"
+                        v-model="form.address" placeholder="省 / 市 / 区 / 街道门牌" autocomplete="street-address"
+                        @blur="checkAddress" @input="reset('address')" />
+                    <p class="msg" :class="{ 'is-error': errors.address }">地址至少 5 个字</p>
+                </div>
+
+                <button v-if="addresses.length" type="button" class="switch-manual" @click="useManual = false">
+                    ← 从已存地址中选择
+                </button>
+            </template>
         </section>
 
         <!-- 2. 支付方式 -->
@@ -259,8 +336,8 @@ function showToast(duration = 2000, callback) {
         <div class="dialog">
             <h3 class="dialog-title">确认提交订单？</h3>
             <p class="dialog-body">
-                收货人：{{ form.name }} · {{ form.phone }}<br />
-                地址：{{ form.address }}
+                收货人：{{ receiverPreview.name }} · {{ receiverPreview.phone }}<br />
+                地址：{{ receiverPreview.address }}
             </p>
             <div class="sum dialog-sum">
                 <span class="muted">共 {{ totalCount }} 件 · 合计</span>
@@ -306,6 +383,83 @@ function showToast(duration = 2000, callback) {
     font-size: 15px;
     font-weight: 600;
     margin: 0 0 16px;
+}
+
+/* ---------- 收货地址选择 ---------- */
+.block-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.manage-link {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--c-brand);
+    text-decoration: none;
+}
+.addr-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.addr-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+}
+.addr-opt input {
+    margin-top: 4px;
+    accent-color: var(--c-brand);
+}
+.addr-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    font-size: 14px;
+    flex: 1;
+}
+.addr-opt.active .addr-box {
+    border-color: var(--c-brand);
+    background: var(--c-brand-weak);
+}
+.addr-line1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.addr-name {
+    font-weight: 600;
+}
+.addr-phone {
+    font-size: 13px;
+    color: var(--c-text-weak);
+}
+.tag {
+    font-size: 12px;
+    color: var(--c-brand);
+    background: #fff;
+    border: 1px solid var(--c-brand);
+    padding: 0 8px;
+    border-radius: 999px;
+}
+.addr-detail {
+    font-size: 13px;
+    color: var(--c-text-weak);
+    word-break: break-all;
+}
+.switch-manual {
+    align-self: flex-start;
+    margin-top: 4px;
+    background: none;
+    border: none;
+    color: var(--c-brand);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
 }
 
 /* ---------- 表单 ---------- */

@@ -12,6 +12,7 @@ const entries = [
   { to: '/favorites', label: '我的收藏', icon: '♥' },
   { to: '/my-coupons', label: '我的优惠券', icon: '🎟' },
   { to: '/my-orders', label: '我的订单', icon: '📦' },
+  { to: '/address', label: '收货地址', icon: '📍' },
   { to: '/coupons', label: '领券中心', icon: '🎁' },
 ]
 

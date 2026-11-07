@@ -14,6 +14,7 @@ import MyCoupon from '@/views/MyCoupon.vue'
 import Profile from '@/views/Profile.vue'
 import MyFavorites from '@/views/MyFavorites.vue'
 import MyOrders from '@/views/MyOrders.vue'
+import Address from '@/views/Address.vue'
 import { useUserStore } from '@/stores/user'
 import { isLoggedIn } from '@/utils/auth'
 import { me } from '@/api/auth'
@@ -105,6 +106,11 @@ const routes = [
     name: 'profile',
     path: '/profile',
     component: Profile,
+  },
+  {
+    name: 'address',
+    path: '/address',
+    component: Address,
   },
   {
     name: 'admin',
