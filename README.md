@@ -29,6 +29,12 @@ pnpm preview     # 本地预览构建产物
 
 生产部署时由 Nginx / 网关做同样的转发，前端代码无需改。
 
+> **图片例外**：接口现在返回的是**完整 URL**（如 `http://localhost:3002/uploads/xxx.png`），
+> `<img :src>` 会直接请求后端域名，跨域部署（前端 `www.example.com`、后端 `api.example.com`）
+> 也不依赖 `/uploads` 代理。上面这条 `/uploads` 只作为「库里残留相对路径」的兜底。
+> 后端用 `PUBLIC_ORIGIN` 指定图片对外域名；生产建议指向 CDN，且前后端都用 https
+> （前端 https + 后端 http 会被浏览器按混合内容拦掉）。详见 `backend/README.md`。
+
 ## 关键约定
 
 - **登录态**：token 存 `localStorage`，axios 请求拦截器自动带 `Authorization: Bearer <token>`。
