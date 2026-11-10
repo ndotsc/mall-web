@@ -1,63 +1,150 @@
 # mall-web
 
+> 桌面 / 移动浏览器版商城前端。作品集总入口见 [PORTFOLIO.md](./PORTFOLIO.md)，四周复盘与下一步路线见 [RETROSPECTIVE.md](./RETROSPECTIVE.md)。
+
 ![CI](https://github.com/ndotsc/mall-web/actions/workflows/ci.yml/badge.svg)
 
-商城前端：Vue 3 + Vite + Element Plus + Pinia + vue-router。配合后端 [mall-api](https://github.com/ndotsc/mall-api) 运行。
+> 上面是 CI badge / 代码仓库信息，**未联网验证、不是部署地址**。
 
-## 环境要求
+## 1. 定位
 
-- Node 20+，pnpm 12
-- 后端 mall-api 已启动（默认 `http://localhost:3000`）
+`mall-web` 是「前端全栈 4 周冲刺」里的项目 A：Vue 3 + Vite 的响应式网站，覆盖品牌首页、商品浏览、搜索筛选、购物车、下单、收藏、评价、优惠券、个人中心与后台管理。它和 `mall-app`（uni-app 多端商城）共用同一套后端接口，可切换 Node / Go / PHP 三套兼容实现。
 
-## 安装与运行
+## 2. 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 框架 | Vue 3 `<script setup>`、Vue Router 5、Pinia 4 |
+| UI | Element Plus |
+| 构建 | Vite 8，`@vitejs/plugin-vue` |
+| HTTP | Axios，统一 `{ code, message, data }` 响应拦截 |
+| 包管理 | **pnpm**（本仓库是 `pnpm-lock.yaml`） |
+| SEO | 静态 meta / OG / canonical + 路由级动态 title / description |
+| 后端 | `mall-api` 3000 / `mall-api-go` 3002 / `mall-api-php` 3001，任选其一 |
+
+## 3. 功能清单
+
+- 前台：首页、商品列表（关键词 / 分类 / 价格 / 排序）、商品详情、关于我们、联系我们。
+- 交易：登录 / 注册、购物车、收货地址、确认订单、优惠券、订单成功、我的订单、订单详情。
+- 用户：个人中心、我的收藏、我的优惠券、领券中心、商品评价。
+- 后台：管理员登录、商品 CRUD、文章 CRUD、图片上传。
+- 体验：图片懒加载 / 失败兜底、上传前压缩、骨架屏、公开 GET 缓存、错误态重试、404、全局异常兜底、vendor chunk。
+
+## 4. 架构与目录
+
+```
+mall-web/
+├── PORTFOLIO.md              # D27 作品集总入口
+├── RETROSPECTIVE.md          # D27 复盘 + 下一步路线
+├── index.html                # 静态 SEO / OG / canonical
+├── public/
+│   ├── robots.txt
+│   └── sitemap.xml
+├── docs/screenshots/         # D27 真实页面截图
+├── src/
+│   ├── api/                  # Axios 封装 + 业务接口模块
+│   ├── components/           # PageSkeleton / ErrorState / SiteHeader / SiteFooter
+│   ├── directives/image.js   # v-img：懒加载 / eager / 失败兜底
+│   ├── router/index.js       # 路由、守卫、SEO meta
+│   ├── stores/               # Pinia：user / cart / ...
+│   ├── utils/                # auth / image / seo
+│   └── views/                # 页面组件
+└── vite.config.js            # dev proxy + 构建分包
+```
+
+开发代理：`/api`、`/uploads` → `http://localhost:3000`。生产跨域部署时接口返回完整图片 URL，`PUBLIC_ORIGIN` 优先，前端不必依赖 `/uploads` 代理。
+
+## 5. 本地运行
+
+> 命令只列给你自己执行；D27 没有代跑安装 / 构建 / 测试。
 
 ```bash
-pnpm install     # 安装依赖
-pnpm dev         # vite 开发服务器，默认 http://localhost:5173
-pnpm build       # 产出 dist/（生产构建）
-pnpm preview     # 本地预览构建产物
+cd /Users/baichuan/development/projects/frontend/vue/mall-web
+pnpm install
+pnpm dev         # http://localhost:5173
+pnpm build       # dist/
+pnpm preview
 ```
 
-## 跨域代理
+后端任选其一，默认使用已启动的 `mall-api`：
 
-`vite.config.js` 已配置开发代理，前端直接请求 `/api/xxx` 即可，由 Vite 转发到后端：
-
-```js
-'/api'     → http://localhost:3000
-'/uploads' → http://localhost:3000
+```bash
+cd /Users/baichuan/development/projects/backend/mall-api
+pnpm install
+pnpm dev         # http://localhost:3000
 ```
 
-生产部署时由 Nginx / 网关做同样的转发，前端代码无需改。
+切换后端只改 `.env` 的 `VITE_API_BASE`，例如 `http://localhost:3002/api`（Go）或 `http://localhost:3001/api`（PHP）。
 
-> **图片例外**：接口现在返回的是**完整 URL**（如 `http://localhost:3002/uploads/xxx.png`），
-> `<img :src>` 会直接请求后端域名，跨域部署（前端 `www.example.com`、后端 `api.example.com`）
-> 也不依赖 `/uploads` 代理。上面这条 `/uploads` 只作为「库里残留相对路径」的兜底。
-> 后端用 `PUBLIC_ORIGIN` 指定图片对外域名；生产建议指向 CDN，且前后端都用 https
-> （前端 https + 后端 http 会被浏览器按混合内容拦掉）。详见 `backend/README.md`。
+## 6. 接口与契约
 
-## 关键约定
+- 统一响应：成功 `{ code: 0, message: "ok", data: ... }`，失败 `{ code: <HTTP状态码>, message: "...", data: null }`。
+- 金额：接口与数据库用整数「分」，页面展示除以 100 转「元」。
+- 鉴权：token 存 `localStorage`，请求拦截器自动带 `Authorization: Bearer <token>`；401 清 token 并跳 `/login?redirect=...`。
+- 管理员：`/admin` 需要 `role === 2`；seed 账号 `admin / admin123`。
+- 图片：库内存 `/uploads/xxx.png`，接口返回完整 URL；三套后端共用 `backend/uploads/`；完整契约见 [PORTFOLIO.md](./PORTFOLIO.md) 第 1 节。
+- 完整接口清单：`mall-api/API.md` 或 `GET /api/docs`。
 
-- **登录态**：token 存 `localStorage`，axios 请求拦截器自动带 `Authorization: Bearer <token>`。
-- **401 处理**：响应拦截器捕获 401 后清空 token 并跳 `/login`（带 `redirect` 回跳原页）。
-- **路由守卫**：`/admin` 路由需 `role === 2`（管理员），普通用户或无登录会被踢回首页 / 登录页。
-- **后台页**：用后端 seed 的 `admin / admin123` 登录后访问 `/admin`，可管理商品与文章（含图片上传）。
-- **金额**：展示用「元」，提交 / 存储用「分」，与后端保持一致。
+## 7. 部署地址（当前未部署）
 
-## D26 体验优化
+> 用户已确认不部署到线上；下表按「未部署 / 待补」降级交付，零编造 URL。
 
-对应学习计划第 4 周 D26「图片压缩/懒加载、骨架屏、接口缓存、错误兜底、H5 的 SEO 与 meta」，全部零新增依赖。
+| 字段 | 地址 | 状态 | 来源 |
+|---|---|---|---|
+| Web 桌面网站 | 待填 | 当前未部署 | 用户提供或自行部署后回填 |
+| H5 商城 | 待填 | 当前未部署 | 用户提供或自行部署后回填 |
+| API · Node | 待填（本地 `http://localhost:3000/api`） | 当前未部署 | 用户提供或自行部署后回填 |
+| API · Go | 待填（本地 `http://localhost:3002/api`） | 当前未部署 | 用户提供或自行部署后回填 |
+| API · PHP | 待填（本地 `http://localhost:3001/api`） | 当前未部署 | 用户提供或自行部署后回填 |
+| 微信小程序 | 待填 | 当前未部署 / 未提交审核 | 用户提供或自行部署后回填 |
+| Android APK | 待填 | 当前未部署 / 未打包分发 | 用户提供或自行部署后回填 |
+| 代码仓库 | `https://github.com/ndotsc/mall-web`（未联网验证） | **不是部署地址** | 现有 badge |
 
-| 项 | 实现位置 | 做法 |
-| --- | --- | --- |
-| 图片懒加载 / 失败兜底 | `src/directives/image.js` 的 `v-img`，全站 13 处 `<img>` | 用指令而不是包一层组件，避免破坏 `.thumb img` 这类后代选择器和 `height:100%`。默认 `loading="lazy"` + `decoding="async"`；详情主图用 `v-img.eager` 标 `fetchpriority=high`（LCP）；失败换成内联 SVG 占位图 |
-| 图片 URL 统一出口 | `src/utils/image.js` 的 `imageUrl()` | 后端现在返回完整 URL，函数原样透传；将来接 CDN / OSS 只改这一处，全站 `v-img` 图片自动带尺寸 / 格式参数（接 CDN 时记得让加工参数幂等） |
-| 上传前压缩 | `src/utils/image.js` 的 `compressImage()`，接在 `AdminProduct.vue` / `AdminArticle.vue` 的上传里 | canvas 等比缩到 1600px + JPEG 重编码，压不动或反而变大就回退原文件；后端 2MB 限制不变 |
-| 骨架屏 | `src/components/PageSkeleton.vue` | `grid` / `list` / `detail` 三种形状，替换了商品列表、详情、订单、收藏、领券中心、我的券、地址页的「加载中…」；尊重 `prefers-reduced-motion` |
-| 接口缓存 | `src/api/request.js` | 只缓存 `/categories`、`/products`、`/products/:id`、`/articles` 这类公开 GET，TTL 60s；同 key 并发请求复用一个 Promise；**登录态一律不缓存**、任何写操作发出时清空缓存。单次跳过 `request.get(url, { cache: false })`，手动清空 `clearApiCache()` |
-| 错误兜底 | `src/main.js`、`src/components/ErrorState.vue`、`src/views/NotFound.vue` | 全局 `errorHandler` / `router.onError` / `unhandledrejection` / 资源加载失败监听；列表与详情页区分「请求失败」和「真的没数据」并给重试按钮；history 模式补了 404 页 |
-| SEO / meta | `index.html`、`src/utils/seo.js`、`src/router/index.js`、`public/robots.txt`、`public/sitemap.xml` | 静态 title / description / OG / canonical + 路由级动态 title（详情页用商品名覆盖）；登录、后台、个人中心等私有页 `noindex`；`vite.config.js` 把 Vue 与 Element Plus 拆成可长期缓存的 vendor chunk |
+`index.html` / `robots.txt` / `sitemap.xml` 中的 `https://example.com` 仍是占位；拿到真实域名后按 [PORTFOLIO.md](./PORTFOLIO.md) 第 5 节的 18 点清单一次性回填。**不要全局替换后端契约示例。**
 
-**两个待办（属于进阶路线，不在 D26 范围内）**：
+## 8. 截图
 
-1. `index.html` / `robots.txt` / `sitemap.xml` 里的 `https://example.com` 是占位，部署拿到真实域名后替换（D27 补部署地址时一起做）；动态商品详情页 `/product/:id` 需要构建期预渲染才能进 sitemap。
-2. 本站是纯 SPA，爬虫只能看到静态 meta 和空的 `#app`，真正的 SEO 需要 Nuxt 3 / SSR。服务端图片重编码（sharp / GD）与 `Cache-Control` / ETag 属于进阶路线的 CDN 与 Redis 章节，三套后端目前都还没做。
+用户确认截图放前端仓库、无需打码。本轮已在本机启动 dev server 并用无头 Chrome 抓取真实页面：
+
+| 页面 | 文件 |
+|---|---|
+| 首页 | [web-home.png](./docs/screenshots/web-home.png) |
+| 商品列表 | [web-products.png](./docs/screenshots/web-products.png) |
+| 商品详情 | [web-product-detail.png](./docs/screenshots/web-product-detail.png) |
+| 登录页 | [web-login.png](./docs/screenshots/web-login.png) |
+
+![首页截图](./docs/screenshots/web-home.png)
+
+购物车、结算、订单、后台、个人中心等需要登录态的截图列入 [PORTFOLIO.md](./PORTFOLIO.md) 第 4 节「待补截图清单」，由用户本地启动后补图。
+
+## 9. D26 体验优化摘要
+
+| 项 | 实现 |
+|---|---|
+| 图片 | `v-img` 指令统一 13 处 `<img>`；`imageUrl()` 预留 CDN 参数；后台上传前 `compressImage()` 等比缩放 + JPEG 重编码 |
+| 骨架屏 | `PageSkeleton.vue` 的 grid / list / detail 三种形状，尊重 `prefers-reduced-motion` |
+| 接口缓存 | `src/api/request.js` 只缓存公开 GET；TTL 60s；同 key 并发复用同一个 Promise；登录态不缓存；写操作清缓存 |
+| 错误兜底 | 全局 `errorHandler`、`router.onError`、`unhandledrejection`、资源 error 捕获；`ErrorState.vue` 区分请求失败与空数据 |
+| SEO / 构建 | 静态 + 路由级 meta、私有页 `noindex`、`robots.txt` / `sitemap.xml`、Vue / Element Plus vendor chunk |
+
+## 10. 已知边界
+
+- 纯 SPA：爬虫只能看到静态 meta 与空 `#app`；真 SEO 需要 Nuxt 3 / SSR 或构建期预渲染。
+- `sitemap.xml` 只列静态路由，商品详情 `/product/:id` 需预渲染后才能枚举。
+- history 模式部署后需要 Nginx `try_files $uri $uri/ /index.html`。
+- 前端内存缓存不取消在途 GET，极端时序下旧请求可能回填旧数据；进阶可加 `cacheEpoch` 或 `AbortController`。
+- 服务端图片重编码、HTTP `Cache-Control` / ETag、Redis 共享缓存属于 [RETROSPECTIVE.md](./RETROSPECTIVE.md) 的进阶路线，当前未实现。
+
+## 11. 关联导航
+
+| 目标 | 链接 / 路径 | 状态 |
+|---|---|---|
+| 作品集总览 | [./PORTFOLIO.md](./PORTFOLIO.md) | 同仓库相对链接 |
+| 复盘与路线 | [./RETROSPECTIVE.md](./RETROSPECTIVE.md) | 同仓库相对链接 |
+| mall-app | `https://github.com/ndotsc/mall-app` | 代码仓库，未联网验证、非部署地址 |
+| mall-api | `https://github.com/ndotsc/mall-api` | 同上 |
+| mall-api-go | 待补（来源：用户提供） | 不按组织名推测 |
+| mall-api-php | 待补（来源：用户提供） | 不按组织名推测 |
+| 后端本地总览 | `backend/README.md` | 不在任何 Git 仓库内，仅本地可读 |
+
+> 本仓库 D26 与 D27 文档当前只有本地提交 / 未提交状态，跨仓库 GitHub 回链需等对应仓库 push 后才生效。

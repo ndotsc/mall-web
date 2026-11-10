@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- D26 静态 sitemap：部署后把 example.com 换成真实域名。
+<!-- D26 静态 sitemap。D27：当前未部署，下面 4 个 loc 元素的 example.com 保持「占位待替换」。
+     拿到真实域名后按 PORTFOLIO.md 第 5 节 18 点回填清单一次性替换。
      商品详情页 /product/:id 是动态路由，SPA 阶段无法静态枚举；
      接了 SSR / 构建期预渲染后再用脚本按商品列表生成并追加进来。 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
