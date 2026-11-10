@@ -8,6 +8,9 @@ import { ElMessage } from 'element-plus'
 import { getProduct } from '@/api/products'
 import { getReviews, createReview } from '@/api/review'
 import { checkFavorite, addFavorite, removeFavorite } from '@/api/favorite'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import ErrorState from '@/components/ErrorState.vue'
+import { setSeo } from '@/utils/seo'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +18,8 @@ const store = useCartStore()
 
 const product = ref(null)
 const loading = ref(true)
+// D26：网络失败时不要再伪装成「商品不存在」
+const loadError = ref(false)
 
 // ---- 收藏状态 ----
 const favorited = ref(false)
@@ -106,13 +111,22 @@ function formatTime(t) {
 // ---- 加载主流程 ----
 async function load() {
   loading.value = true
+  loadError.value = false
   try {
     product.value = await getProduct(route.params.id)
     if (product.value) {
+      // D26 SEO：拿到真实商品名后再覆盖路由预设的通用标题（富文本要先去标签）
+      setSeo({
+        title: product.value.name,
+        description: (product.value.desc || '').replace(/<[^>]+>/g, '').slice(0, 120) || undefined,
+        image: product.value.cover,
+      })
       await Promise.all([loadFav(), loadReviews()])
     }
   } catch (e) {
+    console.error(e)
     product.value = null
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -122,18 +136,32 @@ watch(() => route.params.id, load)
 </script>
 
 <template>
+  <!-- D26：加载中 / 加载失败 / 商品不存在 / 正常，四种状态分开处理 -->
+  <div v-if="loading" class="container">
+    <PageSkeleton type="detail" />
+  </div>
+
+  <ErrorState
+    v-else-if="loadError"
+    title="商品加载失败"
+    description="没能取到商品信息，可能是网络问题，稍后重试一次。"
+    @retry="load"
+  >
+    <RouterLink to="/products" class="btn btn-ghost">返回商品列表</RouterLink>
+  </ErrorState>
+
   <!-- 找不到商品时的兜底，必须有 -->
-  <div v-if="!product && !loading" class="container empty">
+  <div v-else-if="!product" class="container empty">
     <h2>商品不存在</h2>
     <p class="muted">你访问的商品可能已下架，或链接有误。</p>
     <RouterLink to="/products" class="btn btn-ghost">返回商品列表</RouterLink>
   </div>
 
-  <div v-else-if="product" class="container">
+  <div v-else class="container">
     <div class="detail">
-      <!-- 左：图 -->
+      <!-- 左：图。首屏主图用 .eager 立即加载并标记高优先级（LCP） -->
       <div class="card gallery">
-        <img :src="product.cover" :alt="product.name" />
+        <img v-img.eager :src="product.cover" :alt="product.name" />
       </div>
 
       <!-- 右：信息 -->
@@ -215,9 +243,6 @@ watch(() => route.params.id, load)
     </section>
   </div>
 
-  <div v-else class="container empty">
-    <p class="muted">加载中…</p>
-  </div>
 </template>
 
 <style scoped>

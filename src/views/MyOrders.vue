@@ -4,10 +4,13 @@ import { useRouter } from 'vue-router'
 import { formatPrice } from '@/utils/format'
 import { getOrderList } from '@/api/orders'
 import { isLoggedIn } from '@/utils/auth'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import ErrorState from '@/components/ErrorState.vue'
 
 const router = useRouter()
 const orders = ref([])
 const loading = ref(true)
+const loadError = ref(false)
 
 const STATUS = { 1: '待发货', 2: '已发货', 3: '已完成' }
 
@@ -20,8 +23,10 @@ async function load() {
   try {
     const data = await getOrderList()
     orders.value = data.list || []
+    loadError.value = false
   } catch {
     orders.value = []
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -41,7 +46,8 @@ onMounted(load)
   <div class="container">
     <h1 class="page-title">我的订单</h1>
 
-    <p v-if="loading" class="muted">加载中…</p>
+    <PageSkeleton v-if="loading" type="list" :rows="3" />
+    <ErrorState v-else-if="loadError" title="订单加载失败" @retry="load" />
     <p v-else-if="!orders.length" class="muted">还没有订单，去逛逛吧~</p>
 
     <div v-else class="order-list">
@@ -53,7 +59,7 @@ onMounted(load)
 
         <div class="items">
           <div v-for="it in o.items" :key="it.id" class="item">
-            <img class="thumb" :src="it.cover" :alt="it.name" />
+            <img v-img class="thumb" :src="it.cover" :alt="it.name" />
             <div class="item-info">
               <div class="name">{{ it.name }}</div>
               <div class="muted">{{ formatPrice(it.price) }} × {{ it.number }}</div>

@@ -5,10 +5,13 @@ import { ElMessage } from 'element-plus'
 import { getFavorites, removeFavorite } from '@/api/favorite'
 import { formatPrice } from '@/utils/format'
 import { isLoggedIn } from '@/utils/auth'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import ErrorState from '@/components/ErrorState.vue'
 
 const router = useRouter()
 const list = ref([])
 const loading = ref(true)
+const loadError = ref(false)
 
 async function load() {
   if (!isLoggedIn()) {
@@ -19,8 +22,10 @@ async function load() {
   try {
     const data = await getFavorites({ page: 1, pageSize: 50 })
     list.value = data.list || []
+    loadError.value = false
   } catch {
     list.value = []
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -51,13 +56,14 @@ onMounted(load)
   <div class="container">
     <h1 class="page-title">我的收藏</h1>
 
-    <p v-if="loading" class="muted">加载中…</p>
+    <PageSkeleton v-if="loading" type="grid" :rows="4" />
+    <ErrorState v-else-if="loadError" title="收藏加载失败" @retry="load" />
     <p v-else-if="!list.length" class="muted">还没有收藏任何商品，去首页逛逛吧~</p>
 
     <div v-else class="grid">
       <div v-for="item in list" :key="item.id" class="card">
         <div class="thumb-wrap" @click="goDetail(item)">
-          <img class="thumb" :src="item.product?.cover" :alt="item.product?.name" />
+          <img v-img class="thumb" :src="item.product?.cover" :alt="item.product?.name" />
           <div v-if="!item.product" class="off-mask">已下架</div>
         </div>
         <div class="info">

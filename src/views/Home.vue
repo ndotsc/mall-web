@@ -28,7 +28,7 @@ const featured = products.slice(0, 1)
         :to="{ name: 'product', params: { id: p.id } }"
         class="card product-card"
       >
-        <div class="thumb"><img :src="p.cover" :alt="p.name" /></div>
+        <div class="thumb"><img v-img :src="p.cover" :alt="p.name" /></div>
         <div class="info">
           <h3 class="name">{{ p.name }}</h3>
           <div class="price price-sm">{{ formatPrice(p.price) }}</div>

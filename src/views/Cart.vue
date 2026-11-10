@@ -48,7 +48,7 @@ function handleBlur(id, value, el) {
                     :to="{ name: 'product', params: { id: item.id } }"
                     class="thumb"
                 >
-                    <img :src="item.cover" :alt="item.name" />
+                    <img v-img :src="item.cover" :alt="item.name" />
                 </RouterLink>
 
                 <!-- 名称 -->

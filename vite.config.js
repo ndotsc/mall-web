@@ -18,5 +18,22 @@ export default defineConfig({
       // 换后端时改 target 即可（PHP 3001 / Go 3002）。
       '/uploads': { target: 'http://localhost:3000', changeOrigin: true }
     }
+  },
+  // D26 构建优化：不引入任何压缩插件，只把 Vite 已有的能力调好。
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    // 小于 8KB 的小图标内联成 data URI，少一次 HTTP 请求
+    assetsInlineLimit: 8192,
+    rollupOptions: {
+      output: {
+        // 把几乎不变的第三方库单独成 chunk：
+        // 业务代码改了重新部署，浏览器仍能命中旧的 vendor 缓存（文件名带内容 hash）
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          ui: ['element-plus'],
+        }
+      }
+    }
   }
 })

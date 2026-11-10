@@ -9,6 +9,43 @@ import router from "@/router";
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const request = axios.create({ baseURL: API_BASE + '/api', timeout: 10000 })
 
+// ---------------- D26 接口缓存 ----------------
+// 只缓存「公开的、变化不频繁」的 GET 字典 / 列表，TTL 60 秒。
+// 三条边界很重要：
+//   1) 登录态下一律不缓存 —— 避免 A 用户的数据被 B 用户读到
+//   2) 缓存 key 必须包含 query —— 别把第 1 页和第 2 页、不同筛选条件混在一起
+//   3) 任何写操作发出时清空缓存 —— 后台改完商品，列表不能还是旧数据
+const CACHE_TTL = 60 * 1000
+const CACHEABLE_GET = [
+    /^\/categories$/,
+    /^\/products$/,
+    /^\/products\/\d+$/,
+    /^\/articles$/,
+]
+const responseCache = new Map()
+const inflight = new Map()
+
+/** 手动清空缓存（后台保存成功后也可以主动调，prefix 可只清某类接口） */
+export function clearApiCache(prefix = '') {
+    for (const key of responseCache.keys()) {
+        if (!prefix || key.startsWith(prefix)) responseCache.delete(key)
+    }
+}
+
+function stableParams(params) {
+    if (!params) return ''
+    return Object.keys(params)
+        .sort()
+        .map((k) => `${k}=${params[k] == null ? '' : params[k]}`)
+        .join('&')
+}
+
+function isCacheable(url, config) {
+    if (config?.cache === false) return false   // 单次跳过：request.get('/x', { cache: false })
+    if (getToken()) return false                // 登录态不缓存
+    return CACHEABLE_GET.some((re) => re.test(url || ''))
+}
+
 let isUnauth = false
 
 request.interceptors.request.use(
@@ -17,6 +54,8 @@ request.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`
         }
+        // 写操作让读缓存立刻失效（不等响应，宁可多拉一次也不留脏数据）
+        if (config.method && config.method.toLowerCase() !== 'get') clearApiCache()
         return config
     },
     (err) => Promise.reject(err)
@@ -85,4 +124,30 @@ request.interceptors.response.use(
         return Promise.reject(bizError)
     }
 )
+
+// 重写实例上的 get，对 10 个业务 api 模块零侵入：
+//   - 命中未过期缓存 → 直接 resolve 业务数据（形状与响应拦截器输出一致）
+//   - 同一 key 已有在途请求 → 复用同一个 Promise，避免重复发请求
+//   - 首次请求成功后写入缓存，失败不写
+const originalGet = request.get.bind(request)
+request.get = (url, config = {}) => {
+    if (!isCacheable(url, config)) return originalGet(url, config)
+
+    const key = `${url}?${stableParams(config.params)}`
+    const hit = responseCache.get(key)
+    if (hit && Date.now() - hit.at < CACHE_TTL) return Promise.resolve(hit.data)
+
+    const pending = inflight.get(key)
+    if (pending) return pending
+
+    const p = originalGet(url, config)
+        .then((data) => {
+            responseCache.set(key, { at: Date.now(), data })
+            return data
+        })
+        .finally(() => inflight.delete(key))
+    inflight.set(key, p)
+    return p
+}
+
 export default request

@@ -1,0 +1,16 @@
+# D26：告诉爬虫哪些页面不该抓（登录 / 管理 / 个人中心 / 结算）
+# 部署后把下面 sitemap 的 example.com 换成真实域名
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /checkout
+Disallow: /cart
+Disallow: /my-orders
+Disallow: /my-coupons
+Disallow: /favorites
+Disallow: /profile
+Disallow: /address
+Disallow: /order-success
+
+Sitemap: https://example.com/sitemap.xml

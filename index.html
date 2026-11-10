@@ -1,10 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-site</title>
+    <meta name="theme-color" content="#2563eb" />
+
+    <!-- D26：爬虫不执行 JS，SPA 的静态 meta 是 SEO 的基本盘。
+         下面带 example.com 的绝对地址是占位，部署后换成真实域名（D27 补部署地址时一起改）。 -->
+    <title>Mall 商城 - Vue3 全栈商城实战</title>
+    <meta name="description" content="用 Vue 3 + Vite + Node 从零搭建的全栈商城：商品浏览、搜索筛选、购物车、下单、收藏与优惠券，配套 uni-app 小程序与 Android App。" />
+    <meta name="keywords" content="Vue3, Vite, 全栈, 商城, uni-app, 小程序, Node, Prisma, 实战项目" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://example.com/" />
+
+    <!-- Open Graph / 社交分享卡片 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mall 商城" />
+    <meta property="og:title" content="Mall 商城 - Vue3 全栈商城实战" />
+    <meta property="og:description" content="一个从前端到后端、从网站到小程序都跑通的完整商城作品。" />
+    <meta property="og:url" content="https://example.com/" />
+    <meta property="og:image" content="https://example.com/favicon.svg" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- 说明：真正的 SEO 需要 SSR / 预渲染，爬虫现在只能看到这些静态 meta 与空的 #app。
+         进阶路线里的 Nuxt 3 才是解法，见 README「D26 优化」一节。 -->
   </head>
   <body>
     <div id="app"></div>

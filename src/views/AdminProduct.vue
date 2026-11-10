@@ -10,6 +10,7 @@ import {
 import { getCategories } from '@/api/category'
 import request from '@/api/request'
 import { formatPrice } from '@/utils/format'
+import { compressImage } from '@/utils/image'
 
 const list = ref([])
 const cats = ref([])
@@ -74,8 +75,10 @@ function openEdit(row) {
 }
 
 async function onUpload({ file }) {
+  // D26：上传前先在浏览器里压缩（缩边 + JPEG 重编码），别把几 MB 原图直接丢给后端
+  const compressed = await compressImage(file)
   const fd = new FormData()
-  fd.append('file', file)
+  fd.append('file', compressed)
   try {
     const data = await request.post('/upload', fd)
     form.value.cover = data.url
@@ -145,7 +148,7 @@ async function remove(row) {
     <el-table v-loading="loading" :data="list" stripe border empty-text="暂无商品">
       <el-table-column label="封面" width="88" align="center">
         <template #default="{ row }">
-          <img v-if="row.cover" class="thumb" :src="row.cover" :alt="row.name" />
+          <img v-img v-if="row.cover" class="thumb" :src="row.cover" :alt="row.name" />
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
@@ -217,7 +220,7 @@ async function remove(row) {
             >
               <el-button>上传图片</el-button>
             </el-upload>
-            <img v-if="form.cover" class="cover-preview" :src="form.cover" alt="封面预览" />
+            <img v-img v-if="form.cover" class="cover-preview" :src="form.cover" alt="封面预览" />
           </div>
         </el-form-item>
         <el-form-item label="描述" prop="desc">

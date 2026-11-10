@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyCoupons } from '@/api/coupon'
 import { isLoggedIn } from '@/utils/auth'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const router = useRouter()
 const tabs = [
@@ -54,7 +55,7 @@ watch(active, load)
       >{{ t.label }}</button>
     </div>
 
-    <p v-if="loading" class="muted">加载中…</p>
+    <PageSkeleton v-if="loading" type="list" :rows="3" />
     <p v-else-if="!list.length" class="muted">这里还没有优惠券</p>
 
     <div v-else class="coupon-grid">

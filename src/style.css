@@ -67,6 +67,12 @@ img {
   max-width: 100%;
 }
 
+/* D26：v-img 指令在图片加载失败时打上这个类，占位图撑住容器不乱跳 */
+img.img-fallback {
+  object-fit: contain;
+  background: var(--c-bg);
+}
+
 a {
   color: inherit;
   text-decoration: none;

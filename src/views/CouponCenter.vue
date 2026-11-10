@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCoupons, claimCoupon } from '@/api/coupon'
 import { isLoggedIn } from '@/utils/auth'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const router = useRouter()
 const coupons = ref([])
@@ -48,7 +49,7 @@ onMounted(load)
   <div class="container">
     <h1 class="page-title">领券中心</h1>
 
-    <p v-if="loading" class="muted">加载中…</p>
+    <PageSkeleton v-if="loading" type="list" :rows="3" />
     <p v-else-if="!coupons.length" class="muted">暂无可领取的优惠券</p>
 
     <div v-else class="coupon-grid">

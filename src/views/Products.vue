@@ -4,6 +4,8 @@ import { formatPrice } from '@/utils/format'
 import { ref, computed, onMounted } from 'vue'
 import { getProducts } from '@/api/products'
 import { getCategories } from '@/api/category'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import ErrorState from '@/components/ErrorState.vue'
 
 // 每页 8 件：桌面端 4 列 × 2 行正好铺满，不留半行；
 // 当前库里 10 件商品，能正好演示出 2 页（想改 12 改这一个数即可）
@@ -11,6 +13,8 @@ const PAGE_SIZE = 8
 
 const products = ref([])
 const loading = ref(true)
+// D26：请求失败 ≠ 没有搜索结果，分开渲染才能给用户一个「重试」入口
+const loadError = ref(false)
 const keyword = ref('')
 const total = ref(0)
 const page = ref(1)
@@ -37,8 +41,10 @@ async function fetchProducts() {
     })
     products.value = res.list
     total.value = res.total
+    loadError.value = false
   } catch (e) {
     console.error(e)
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -128,14 +134,21 @@ function goPage(target) {
       </select>
     </div>
 
-    <p v-if="loading" class="muted">加载中...</p>
+    <!-- D26：加载中 / 加载失败 / 真的搜不到，三种状态分开，失败时给重试入口 -->
+    <PageSkeleton v-if="loading" type="grid" :rows="PAGE_SIZE" />
+    <ErrorState
+      v-else-if="loadError"
+      title="商品加载失败"
+      description="没能从服务器取到商品列表，检查一下网络再试一次。"
+      @retry="fetchProducts"
+    />
     <!-- 空状态：搜不到时给明确反馈，而不是一片空白 -->
     <p v-else-if="!products.length" class="muted empty">
       没有找到{{ keyword ? `与「${keyword}」相关的` : '' }}商品
     </p>
 
     <!-- 响应式网格：一行最多放多少列，由浏览器自己算，不用写媒体查询 -->
-    <div class="grid">
+    <div v-else class="grid">
       <RouterLink
         v-for="product in products"
         :key="product.id"
@@ -144,7 +157,7 @@ function goPage(target) {
       >
         <!-- aspect-ratio: 保证所有图片占位一致，不会因加载快慢抖动 -->
         <div class="thumb">
-          <img :src="product.cover" :alt="product.name" />
+          <img v-img :src="product.cover" :alt="product.name" />
         </div>
         <div class="info">
           <h3 class="name">{{ product.name }}</h3>
@@ -154,8 +167,8 @@ function goPage(target) {
       </RouterLink>
     </div>
 
-    <!-- 翻页：只在超过一页时出现，边界页禁用对应按钮 -->
-    <nav v-if="pageCount > 1" class="pager">
+    <!-- 翻页：只在超过一页且状态正常时出现，边界页禁用对应按钮 -->
+    <nav v-if="!loading && !loadError && pageCount > 1" class="pager">
       <button class="page-btn" :disabled="page === 1" @click="goPage(page - 1)">上一页</button>
       <span class="page-info">第 {{ page }} / {{ pageCount }} 页</span>
       <button class="page-btn" :disabled="page === pageCount" @click="goPage(page + 1)">下一页</button>

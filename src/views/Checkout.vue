@@ -292,7 +292,7 @@ function showToast(duration = 2000, callback) {
 
             <div v-for="item in items" :key="item.id" class="line">
                 <RouterLink :to="{ name: 'product', params: { id: item.id } }" class="thumb">
-                    <img :src="item.cover" :alt="item.name" />
+                    <img v-img :src="item.cover" :alt="item.name" />
                 </RouterLink>
 
                 <div class="info">

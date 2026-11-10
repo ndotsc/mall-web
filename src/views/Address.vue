@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress } from '@/api/address'
 import { isLoggedIn } from '@/utils/auth'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const router = useRouter()
 const list = ref([])
@@ -110,7 +111,7 @@ async function remove(a) {
       <el-button type="primary" @click="openAdd">＋ 新增地址</el-button>
     </div>
 
-    <div v-if="loading" class="muted">加载中…</div>
+    <PageSkeleton v-if="loading" type="list" :rows="3" />
 
     <div v-else-if="!list.length" class="empty">
       <p>还没有收货地址</p>

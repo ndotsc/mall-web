@@ -79,7 +79,7 @@ onMounted(async () => {
 
             <div class="goods">
                 <div v-for="item in orderInfo.items" :key="item.id" class="g-line">
-                    <img class="g-thumb" :src="item.cover" :alt="item.name" />
+                    <img v-img class="g-thumb" :src="item.cover" :alt="item.name" />
                     <div class="g-info">
                         <div class="clamp-2">{{ item.name }}</div>
                         <div class="muted">× {{ item.number }}</div>
